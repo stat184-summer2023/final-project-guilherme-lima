@@ -1,6 +1,6 @@
 ---
 title: "Initial EDA Basic Outline"
-author: "Names of all group members"
+author: "Guilherme Lima"
 output: html_notebook
 ---
 
@@ -17,11 +17,48 @@ State your specific research question and why it is interesting.
 #### Data Intake 
 
 Include R code and written explanation to import your **TWO** data sets.
+```{r}
+library(tidyverse)
+results <- read.csv("results.csv")
+drivers <- read.csv("drivers.csv")
+races <- read.csv("races.csv")
+circuits <- read.csv("circuits.csv")
+```
+
+
+
 
 #### Data Wrangling 
 
-Include R code and written explanation for wangling your data (you can make multiple wrangled data sets). 
+Include R code and written explanation for wrangling your data (you can make multiple wrangled data sets). 
+```{r}
+circuits <- circuits %>% select(circuitId, name)
+drivers <- drivers %>% select(driverId, driverRef)  
+#here, we select driverRef instead of surname as an identifier, because in F1 sometimes people have the same last name
 
+
+currentRaces <- races %>% filter(year >= 2010 & year <= 2022)
+races <- currentRaces %>% select(raceId, circuitId)
+results <- results %>% select(raceId,driverId, points)
+```
+
+```{r}
+joined_1 <- right_join(races, circuits, by = "circuitId")
+joined_2 <- right_join(results, drivers, by = "driverId")
+joined_3 <- full_join(joined_1, joined_2, by = "raceId")
+
+test <- joined_3 %>% group_by(name, driverId) %>% arrange(driverId, circuitId)
+
+analysis1 <- joined_3 %>% group_by(driverRef, name) %>% summarise(totalPoints = sum(points)) %>% arrange(desc(totalPoints))
+
+analysis2 <- joined_3 %>% group_by(driverRef, name, circuitId) %>% summarise(totalPoints = sum(points), numRaces = n()) %>%
+mutate(averagePoints = totalPoints/ numRaces) %>%
+  arrange(desc(averagePoints))
+
+analysis3 <- joined_3 %>% group_by(driverRef, name, circuitId) %>% summarise(totalPoints = sum(points), numRaces = n()) %>%
+mutate(averagePoints = totalPoints/ numRaces) %>%
+  arrange(desc(totalPoints))
+```
 
 
 
