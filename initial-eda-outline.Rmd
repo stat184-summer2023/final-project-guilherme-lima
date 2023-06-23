@@ -71,11 +71,17 @@ str(racesResults)
 We see here that the columns are as follows:
 
 raceId: a unique identifier for a race in a season
+
 circuitId: a unique identifier for a circuit 
+
 year: season of the race 
+
 name: name of the circuit
+
 driverId: a unique identifier for a driver 
+
 points: a numeric value between 0 and 26 for the points a driver has eared in a race
+
 driverRef: a string for a driver's reference name, this is used because sometimes drivers have the same last name 
 
 
