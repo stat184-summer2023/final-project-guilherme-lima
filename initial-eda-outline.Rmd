@@ -34,30 +34,47 @@ Include R code and written explanation for wrangling your data (you can make mul
 ```{r}
 circuits <- circuits %>% select(circuitId, name)
 drivers <- drivers %>% select(driverId, driverRef)  
-#here, we select driverRef instead of surname as an identifier, because in F1 sometimes people have the same last name
+
 
 
 currentRaces <- races %>% filter(year >= 2010 & year <= 2022)
-races <- currentRaces %>% select(raceId, circuitId)
+races <- currentRaces %>% select(raceId, circuitId, year)
 results <- results %>% select(raceId,driverId, points)
 ```
 
 ```{r}
 joined_1 <- right_join(races, circuits, by = "circuitId")
+joined_1 <- drop_na(joined_1)
+
 joined_2 <- right_join(results, drivers, by = "driverId")
+joined_2 <- drop_na(joined_2)
+
 joined_3 <- full_join(joined_1, joined_2, by = "raceId")
+joined_3 <- drop_na(joined_3)
+```
 
-test <- joined_3 %>% group_by(name, driverId) %>% arrange(driverId, circuitId)
 
-analysis1 <- joined_3 %>% group_by(driverRef, name) %>% summarise(totalPoints = sum(points)) %>% arrange(desc(totalPoints))
 
-analysis2 <- joined_3 %>% group_by(driverRef, name, circuitId) %>% summarise(totalPoints = sum(points), numRaces = n()) %>%
+```{r}
+test <- joined_3 %>% group_by(name, driverId, year) %>% arrange(driverId, circuitId)
+
+
+analysis2 <- joined_3 %>% group_by(driverRef, name) %>% summarise(totalPoints = sum(points), numRaces = n()) %>%
 mutate(averagePoints = totalPoints/ numRaces) %>%
   arrange(desc(averagePoints))
 
 analysis3 <- joined_3 %>% group_by(driverRef, name, circuitId) %>% summarise(totalPoints = sum(points), numRaces = n()) %>%
 mutate(averagePoints = totalPoints/ numRaces) %>%
   arrange(desc(totalPoints))
+
+analysis4 <- analysis3 %>% filter(numRaces > 10 ) %>% group_by(driverRef) %>% arrange(driverRef, desc(averagePoints)) 
+
+
+maxAveragePoints <- analysis4 %>%
+  group_by(name) %>%
+  filter(averagePoints == max(averagePoints)) %>%
+  ungroup() %>%
+  select(name, driverRef, averagePoints)
 ```
 
 
@@ -68,9 +85,19 @@ mutate(averagePoints = totalPoints/ numRaces) %>%
 
 Include R code to make one data visualization (I would encourage you to use 3 or more variables). Include a brief written description of what your graph shows. Is this graph helpful in answering your research question? If it is helpful, will you need to add/modify anything in this graph in the final report? 
 
+```{r}
+analysis4 %>% ggplot(aes(x=averagePoints, y=name)) + geom_point(aes(color=driverRef))
+
+```
+
+
 #### Plot 2
 
-Include R code to make one data visualization (I would encourage you to use 3 or more variables). Include a brief written description of what your graph shows. Is this graph helpful in answering your research question? If it is helpful, will you need to add/modify anything in this graph in the final report? 
+```{r}
+maxAveragePoints %>%
+  ggplot(aes(x = averagePoints, y = name, color = driverRef)) +
+  geom_point(shape = "circle", size = 2.0) 
+```
 
 
 ## Conclusion
