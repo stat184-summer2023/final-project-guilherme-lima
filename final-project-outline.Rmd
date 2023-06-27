@@ -1,5 +1,5 @@
 ---
-title: "Final Project Basic Outline"
+title: "F1 Analysis Final Project"
 author: "Guilherme Lima"
 output: html_notebook
 ---
