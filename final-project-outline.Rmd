@@ -1,37 +1,199 @@
 ---
 title: "Final Project Basic Outline"
-author: "Names of all group members"
+author: "Guilherme Lima"
 output: html_notebook
 ---
 
-This is an outline for your final project. You can follow this outline, or you can modify it as you see fit. Do what works best for your project. 
-
 ## Research Question 
 
-State your general specific question and why it is interesting. 
+In F1, drivers may complete circuits many times, but due to many conditions (such as weather, constructor, hazard), these drivers may get different results in these circuits across many seasons. This research question is aimed at addressing who is the most consistent driver for each circuit.
 
+RQ: After the points system change in 2010, what is the average points value for drivers on each circuit? In addition, what is the highest average points value for each circuit, and which driver is it attributed to? 
+
+
+Conditions: 
+
+1) The data must only use the new points system values, starting with the 2010 season.
+
+2) The data will not include the 2023 season since it has not been completed. 
+
+3) The analysis will only include drivers who have raced on a particular circuit more than 10 times, in order to have a larger sample size; allowing for a more accurate representation of the sample average. In addition, this threshold is also to limit the size of the final output to reasonably fit on a graph. 
 
 
 ## Data Processing 
 
 #### Data Intake 
 
-Include R code and written explanation to import your **TWO** data sets.
+The data is collected from an F1 dataset on Kaggle. It contains various datasets detailing races, results, drivers, constructors, qualifying results, and many more from the years 1950-2023. These datasets have separate identifiers in each of them, so we will need to join them on those identifieres for further analysis. 
+
+[F1 Kaggle Dataset](https://www.kaggle.com/datasets/rohanrao/formula-1-world-championship-1950-2020)
+
+```{r}
+library(tidyverse)
+results <- read.csv("results.csv")
+drivers <- read.csv("drivers.csv")
+races <- read.csv("races.csv")
+circuits <- read.csv("circuits.csv")
+#load in all datasets and required packages
+```
+
+```{r}
+head(results)
+head(drivers)
+head(races)
+head(circuits)
+```
 
 #### Data Wrangling 
 
-Include R code and written explanation for wangling your data (you can make multiple wrangled data sets). 
+```{r}
+currentRaces <- 
+  races %>% 
+  filter(year >= 2010 & year <= 2022)
+#filter races dataset to only include races from 2010-2022
+
+races <- currentRaces %>% 
+  select(raceId, circuitId, year)
+
+circuits <- circuits %>% 
+  select(circuitId, name)
+
+drivers <- drivers %>% 
+  select(driverId, driverRef)  
+
+results <- results %>% 
+  select(raceId,driverId, points)
+#select necessary columns for future table joins
+```
+
+```{r}
+racesWithCircuits <- 
+  right_join(races, circuits, by = "circuitId")
+
+racesWithCircuits <- 
+  drop_na(racesWithCircuits)
+#join the races and circuits dataframes by circuitId , and keep all columns in circuits dataframe
+
+resultsWithDrivers <- 
+  right_join(results, drivers, by = "driverId")
+
+resultsWithDrivers <- 
+  drop_na(resultsWithDrivers)
+#join the results and drivers dataframes by driverId, and keep all colummns in drivers dataframe
+
+racesResults <- 
+  full_join(racesWithCircuits, resultsWithDrivers, by = "raceId")
+
+racesResults <- 
+  drop_na(racesResults)
+#join the racesWithCircuits and resultsWithDrivers dataframes by raceId, and keep all columns in both dataframes
+```
+
+```{r}
+str(racesResults)
+```
+
+We see here that the columns are as follows:
+
+* raceId: a unique identifier for a race in a season
+
+* circuitId: a unique identifier for a circuit 
+
+* year: season of the race 
+
+* name: name of the circuit
+
+* driverId: a unique identifier for a driver 
+
+* points: a numeric value between 0 and 26 for the points a driver has eared in a race
+
+* driverRef: a string for a driver's reference name, this is used because sometimes drivers have the same last name 
+
+```{r}
+test <- 
+  racesResults %>% 
+  group_by(name, driverId, year) %>% 
+  arrange(driverId, circuitId)
+#make sure joins worked properly by checking driver's scored points on a circuit each year
+```
+
+```{r}
+averageCircuitPoints <- 
+  racesResults %>%
+  group_by(driverRef, name) %>% 
+  summarise(totalPoints = sum(points), numRaces = n()) %>%
+  mutate(averagePoints = totalPoints/ numRaces) %>%
+  arrange(desc(averagePoints))
+#find the average circuit points for each driver by getting the total points they have gained for a circuit, and dividing it by the number of times they have completed that circuit
+
+removedTracks <- 
+  averageCircuitPoints %>% 
+  filter(!grepl("Istanbul", name))
+#this track was removed in 2011 due to low attendance, thus it is impossible for drivers to have driven on this track to be inlcuded in analysis
+
+filteredAverageCircuitPoints <- 
+  removedTracks %>% 
+  filter(numRaces > 10 ) %>% 
+  group_by(driverRef) %>% 
+  arrange(driverRef, desc(averagePoints)) 
+#filter the average circuit points for drivers who have completed the circuit more than 10 times
 
 
 
+maxAveragePoints <- 
+  filteredAverageCircuitPoints %>%
+  group_by(name) %>%
+  filter(averagePoints == max(averagePoints)) %>%
+  ungroup() %>%
+  select(name, driverRef, averagePoints)
+#find the maximum "average points" for each circuit, and include the driver reference name 
+```
+```{r}
+uniqueTracks <- list()
+for (i in unique(filteredAverageCircuitPoints$name)) {
+  uniqueTracks <- c(uniqueTracks, i)
+}
+print(uniqueTracks)
+#this gives us all of the tracks in the filtered dataframe so that we can easily see which tracks are included for the graph
+```
 
 ## Data Visualization
 
-Include R code and written explanation for your data visualization(s) with at least 3 variables. You must have **at least** one graph. You may have more than one (I would encourage you to have more than one). 
+The graph below depicts the relationship between the average points for a circuit, by the circuit name. This graph is colored by the driver name for ease of identification. We observe that Hamilton has the highest average points on F1 circuits for most circuits. The second highest average points for each circuit would go to Vettel. 
 
+We observe that the outliers in this graph are Raikkonen and Hulkenberg, both of whom only have over 10 races in 3 or less circuits of the ones in the table. 
 
+```{r}
+filteredAverageCircuitPoints %>% 
+  ggplot(aes(x=averagePoints, y=name)) + 
+  geom_point(aes(color=driverRef)) + 
+  labs(x= "Average Circuit Points", y= "Circuit", color = "Driver", title = "Average Circuit Points for Drivers") 
+
+```
+
+The graph below depicts the relationship between the highest average points for a circuit, by the circuit name. This graph is separated by driver, and layered with the rounded average points.We observe that Hamilton has the highest average points on F1 circuits for most circuits. 
+
+Vettel has the highest average points for only two circuits, Marina Bay Street Circuit, and Circuit de Monaco, indicating an overall more consistent performance in those circuits compared to other drivers. 
+
+```{r}
+ggplot(maxAveragePoints) +
+ aes(x = name, y = driverRef, fill = averagePoints) +
+ geom_tile() + 
+ geom_text(label = round(maxAveragePoints$averagePoints)) +
+ scale_fill_viridis_c(option = "plasma", direction = 1) +
+ coord_flip() +
+ theme_minimal() + 
+labs(x= "Max Average Circuit Points", y= "Circuit", color = "Driver", title = "Highest Average Circuit Points for Drivers")
+```
 
 
 ## Conclusion
 
-Answer your research question using the data sets and visualizations you created. 
+Overall, we have achieved an informative table that displays the average points scored on each circuit, in respect to the given conditions stated in the introduction. We notice that Hamilton is the most consistent driver in the last 12 years, and that Vettel is the second most consistent driver. Even though this data is filtered for over 10 races on a particular circuit, there are some drivers such as Riccardo and Perez who average around the 1-7 point range. 
+
+Also, we further refined our criteria to see that Vettel is the more consistent driver for the Maina Bay Street Circuit and Circuit de Monaco.
+
+
+## Future Questions To Address:
+
+For Hamilton and Vettel, what is the average starting position when included in this dataset? It would be interesting to observe if these drivers started from an advantageous starting position due to qualifying results or if they had to overtake during the race. 
